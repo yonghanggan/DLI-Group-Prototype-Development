@@ -68,3 +68,79 @@ print("Test size:", X_test.shape[0])
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout
+
+
+# Define a Sequential deep learning model
+model = Sequential([
+    # First hidden layer: 64 neurons, ReLU activation, input shape matches number of features
+    Dense(64, activation='relu', input_shape=(X_train.shape[1],)),
+
+    # Dropout layer: randomly sets 30% of inputs to 0 during training to prevent overfitting
+    Dropout(0.3),
+
+    # Second hidden layer: 32 neurons, ReLU activation
+    Dense(32, activation='relu'),
+
+    # Another Dropout layer: drops 20% of inputs
+    Dropout(0.2),
+
+    # Output layer: 1 neuron, sigmoid activation for binary classification (benign vs attack)
+    Dense(1, activation='sigmoid')
+])
+
+# Compile the model with optimizer, loss function, and performance metrics
+model.compile(
+    optimizer='adam',                     # Adaptive learning rate optimizer
+    loss='binary_crossentropy',           # Suitable for binary classification tasks
+    metrics=[
+        'accuracy',                       # Overall accuracy
+        tf.keras.metrics.Precision(),     # Precision: how many predicted attacks were correct
+        tf.keras.metrics.Recall()         # Recall: how many actual attacks were caught
+    ]
+)
+
+# Show model architecture summary
+model.summary()
+
+
+# Train the model using training data, validate on test data
+history = model.fit(
+    X_train, y_train,                     # Input features and labels for training
+    validation_data=(X_test, y_test),     # Validation split (test set)
+    epochs=10,                            # Number of full passes through the dataset
+    batch_size=256,                       # Number of samples per training batch
+    verbose=1                             # Show training progress
+)
+
+
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+
+# Predict on test set
+y_pred_prob = model.predict(X_test)
+y_pred = (y_pred_prob > 0.5).astype("int32")
+
+# Generate confusion matrix
+cm = confusion_matrix(y_test, y_pred)
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['Benign', 'Attack'])
+
+# Plot it
+disp.plot(cmap='Blues')
+
+
+from sklearn.metrics import roc_curve, auc
+import matplotlib.pyplot as plt
+
+# Get false positive rate, true positive rate
+fpr, tpr, thresholds = roc_curve(y_test, y_pred_prob)
+roc_auc = auc(fpr, tpr)
+
+# Plot ROC
+plt.figure()
+plt.plot(fpr, tpr, color='darkorange', lw=2, label='ROC curve (AUC = {:.4f})'.format(roc_auc))
+plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Receiver Operating Characteristic (ROC)')
+plt.legend(loc='lower right')
+plt.grid()
+plt.show()
